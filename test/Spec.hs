@@ -14,16 +14,19 @@ import Data.List
 parse :: Parsec String () a -> String -> Either ParseError a
 parse rule text = Parsec.parse rule "(source)" text
 
+matchTillNewline = manyTill anyChar (try (string "\n"))
+matchTillEOFNoNewline = manyTill (noneOf "\n") (try eof)
+
 parseLinesState :: String -> Either ParseError (Integer, Integer)
 parseLinesState input = do
   let
     matchLine i = do
-      void $ manyTill anyChar (try (string "\n"))
+      void $ matchTillNewline
       modifyState (+1)
       lineParser (i + 1)
     lineParser :: Integer -> Parsec String Integer (Integer, Integer)
     lineParser i =
-      try (manyTill (noneOf "\n") (try eof) >> handleEnd i) <|> matchLine i
+      try (matchTillEOFNoNewline >> handleEnd i) <|> matchLine i
     handleEnd i = do
       j <- getState
       pure (i,j)
@@ -33,15 +36,15 @@ parseLines :: String -> Either ParseError Integer
 parseLines input = do
   let
     lineParser i =
-      try (manyTill (noneOf "\n") (try eof) >> pure i) <|>
-         (manyTill anyChar (try (string "\n")) >> lineParser (i+1))
+      try (matchTillEOFNoNewline >> pure i) <|>
+         (matchTillNewline >> lineParser (i+1))
   parse (lineParser 1) input
 
 parseStatic :: String -> Either ParseError Integer
 parseStatic input = do
   let
     rules = do
-      void $ manyTill anyChar (try (string "\n"))
+      void $ matchTillNewline
       -- void $ manyTill anyChar eof
       pure 10
   parse rules input
