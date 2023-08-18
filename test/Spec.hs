@@ -17,6 +17,23 @@ parse rule text = Parsec.parse rule "(source)" text
 matchTillNewline = manyTill anyChar (try (string "\n"))
 matchTillEOFNoNewline = manyTill (noneOf "\n") (try eof)
 
+matchTillNewline' :: Parsec String Integer ()
+matchTillNewline' = do
+  manyTill anyChar (try (string "\n"))
+  modifyState (+1)
+
+parseBeginning :: Parsec String Integer ()
+parseBeginning = do
+  void $ many matchTillNewline'
+  void $ manyTill matchTillNewline' (manyTill (noneOf "\n") (try (string "[persistLowerCase|")))
+  -- i <- getState
+  -- pure i
+
+-- parseEntityLineNumbers :: String -> Either ParseError [(String, Integer)]
+-- parseEntityLineNumbers input =
+--   let x =
+--   runParser x (lineParser 1) 1 "filename.hs" input
+
 parseLinesState :: String -> Either ParseError (Integer, Integer)
 parseLinesState input = do
   let
@@ -67,10 +84,21 @@ main = hspec $ do
                   ]
     parseLinesState input2 `shouldBe` Right (4,4)
 
+  it "parses possibly" $ do
+    runParser (parseBeginning >> many anyChar >> getState) 1 "(source)" realExample `shouldBe` Right 19
 
-
-
+realExample :: [Char]
 realExample = intercalate "\n"
+
+
+
+
+
+
+
+
+
+
       [ "{-# LANGUAGE TemplateHaskell #-}"
       , "{-# OPTIONS_GHC -Wno-missing-deriving-strategies #-}"
       , ""
