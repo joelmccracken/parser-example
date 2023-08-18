@@ -14,17 +14,20 @@ import Data.List
 parse :: Parsec String () a -> String -> Either ParseError a
 parse rule text = Parsec.parse rule "(source)" text
 
-parseLinesState :: String -> Either ParseError Integer
+parseLinesState :: String -> Either ParseError (Integer, Integer)
 parseLinesState input = do
   let
-    matchLine = do
+    matchLine i = do
       void $ manyTill anyChar (try (string "\n"))
       modifyState (+1)
-      lineParser
-    lineParser :: Parsec String Integer ()
-    lineParser =
-      (void $ try (manyTill (noneOf "\n") (try eof) )) <|> matchLine
-  runParser (lineParser >> getState) 1 "filename.hs" input
+      lineParser (i + 1)
+    lineParser :: Integer -> Parsec String Integer (Integer, Integer)
+    lineParser i =
+      try (manyTill (noneOf "\n") (try eof) >> handleEnd i) <|> matchLine i
+    handleEnd i = do
+      j <- getState
+      pure (i,j)
+  runParser (lineParser 1) 1 "filename.hs" input
 
 parseLines :: String -> Either ParseError Integer
 parseLines input = do
@@ -59,4 +62,4 @@ main = hspec $ do
                   , "c"
                   , "d"
                   ]
-    parseLinesState input2 `shouldBe` Right 4
+    parseLinesState input2 `shouldBe` Right (4,4)
