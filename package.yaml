@@ -57,3 +57,6 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - example-repo
+    - hspec
+    - parsec
+    - mtl
