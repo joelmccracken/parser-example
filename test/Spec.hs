@@ -66,3 +66,38 @@ main = hspec $ do
                   , "d"
                   ]
     parseLinesState input2 `shouldBe` Right (4,4)
+
+
+
+
+realExample = intercalate "\n"
+      [ "{-# LANGUAGE TemplateHaskell #-}"
+      , "{-# OPTIONS_GHC -Wno-missing-deriving-strategies #-}"
+      , ""
+      , "module Freckle.Entities.Ela.Decodables.AssignmentSession"
+      , "  ( module Freckle.Entities.Ela.Decodables.AssignmentSession"
+      , "  ) where"
+      , ""
+      , "import Freckle.Entities.Import"
+      , ""
+      , "import Database.Persist.Sql (toSqlKey)"
+      , "import Test.QuickCheck.Arbitrary.Generic"
+      , ""
+      , "mkPersist"
+      , "  sqlSettings"
+      , "  [persistLowerCase|"
+      , ""
+      , "ElaDecodablesAssignmentSession sql=ela_decodables_assignment_sessions"
+      , "  studentId  StudentId"
+      , "  assignmentId  ElaDecodablesAssignmentId"
+      , "  updatedAt UTCTime"
+      , "  completedAt  UTCTime Maybe sql=completed_at"
+      , "  durationSeconds  DurationSeconds Maybe"
+      , "  accuracy  (Percentage Double) Maybe"
+      , "  numQuestionsAnswered  OverflowNatural Maybe"
+      , "  ElaDecodablesAssignmentSessionsStudentIdAssignmentIdKey studentId assignmentId"
+      , "  deriving Show Eq Ord Generic"
+      , "|]"
+      , ""
+      , ""
+      ]
