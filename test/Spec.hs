@@ -1,15 +1,88 @@
-
-
 import Test.Hspec
 
 import qualified Text.Parsec as Parsec
 import Text.Parsec hiding (parse)
 
-import Control.Applicative (pure)
+import Control.Applicative (pure, some)
 
 import Control.Monad.Identity (Identity)
 import Control.Monad
 import Data.List
+import Data.Char (isAlpha)
+
+
+
+
+
+
+realExample :: [Char]
+realExample = intercalate "\n"
+      [ "{-# LANGUAGE TemplateHaskell #-}"
+      , "{-# OPTIONS_GHC -Wno-missing-deriving-strategies #-}"
+      , ""
+      , "module Freckle.Entities.Ela.Decodables.AssignmentSession"
+      , "  ( module Freckle.Entities.Ela.Decodables.AssignmentSession"
+      , "  ) where"
+      , ""
+      , "import Freckle.Entities.Import"
+      , ""
+      , "import Database.Persist.Sql (toSqlKey)"
+      , "import Test.QuickCheck.Arbitrary.Generic"
+      , ""
+      , "mkPersist"
+      , "  sqlSettings"
+      , "  [persistLowerCase|"
+      , "ElaDecodablesAssignmentSession sql=ela_decodables_assignment_sessions"
+      , "  studentId  StudentId"
+      , "  assignmentId  ElaDecodablesAssignmentId"
+      , "  updatedAt UTCTime"
+      , "  completedAt  UTCTime Maybe sql=completed_at"
+      , "  durationSeconds  DurationSeconds Maybe"
+      , "  accuracy  (Percentage Double) Maybe"
+      , "  numQuestionsAnswered  OverflowNatural Maybe"
+      , "  ElaDecodablesAssignmentSessionsStudentIdAssignmentIdKey studentId assignmentId"
+      , "  deriving Show Eq Ord Generic"
+      , "|]"
+      , ""
+      , ""
+      ]
+
+realExample2 :: [Char]
+realExample2 = intercalate "\n"
+      [ "{-# LANGUAGE TemplateHaskell #-}"
+      , "{-# OPTIONS_GHC -Wno-missing-deriving-strategies #-}"
+      , ""
+      , "module Freckle.Entities.Ela.Decodables.AssignmentSession"
+      , "  ( module Freckle.Entities.Ela.Decodables.AssignmentSession"
+      , "  ) where"
+      , ""
+      , "import Freckle.Entities.Import"
+      , ""
+      , "import Database.Persist.Sql (toSqlKey)"
+      , "import Test.QuickCheck.Arbitrary.Generic"
+      , ""
+      , "mkPersist"
+      , "  sqlSettings"
+      , "  [persistLowerCase| ElaDecodablesAssignmentSession"
+      , "sql=ela_decodables_assignment_sessions"
+      , "  studentId  StudentId"
+      , "  assignmentId  ElaDecodablesAssignmentId"
+      , "  updatedAt UTCTime"
+      , "  completedAt  UTCTime Maybe sql=completed_at"
+      , "  durationSeconds  DurationSeconds Maybe"
+      , "  accuracy  (Percentage Double) Maybe"
+      , "  numQuestionsAnswered  OverflowNatural Maybe"
+      , "  ElaDecodablesAssignmentSessionsStudentIdAssignmentIdKey studentId assignmentId"
+      , "  deriving Show Eq Ord Generic"
+      , "|]"
+      , ""
+      , ""
+      ]
+
+
+
+
+data CtagPieces = CtagPieces [(String, Integer)]
 
 parse :: Parsec String () a -> String -> Either ParseError a
 parse rule text = Parsec.parse rule "(source)" text
@@ -17,15 +90,48 @@ parse rule text = Parsec.parse rule "(source)" text
 matchTillNewline = manyTill anyChar (try (string "\n"))
 matchTillEOFNoNewline = manyTill (noneOf "\n") (try eof)
 
-matchTillNewline' :: Parsec String Integer ()
-matchTillNewline' = do
+matchAnyCharTillNewline' :: Parsec String Integer ()
+matchAnyCharTillNewline' = do
   manyTill anyChar (try (string "\n"))
+  modifyState (+1)
+
+matchSpaceTillNewline' :: Parsec String Integer ()
+matchSpaceTillNewline' = do
+  manyTill space' (try (string "\n"))
   modifyState (+1)
 
 parseBeginning :: Parsec String Integer ()
 parseBeginning = do
-  void $ many matchTillNewline'
-  void $ manyTill matchTillNewline' (manyTill (noneOf "\n") (try (string "[persistLowerCase|")))
+  let matchLineWithPersistLowerCase = try (manyTill (noneOf "\n") (try (string "[persistLowerCase|")))
+  void $ manyTill matchAnyCharTillNewline' matchLineWithPersistLowerCase
+
+space' :: Parsec String a Char
+space' = (try (char ' ') <|> try (char '\t'))
+
+alpha :: Parsec String a Char
+alpha = satisfy isAlpha
+
+entityPiece :: Parsec String a String
+entityPiece = do
+  u <- upper
+  l <- many alpha
+  pure $ u : l
+
+parseEntityName :: Parsec String a String
+parseEntityName = do
+  concat <$> some entityPiece
+
+parseEntity :: Parsec String Integer CtagPieces
+parseEntity = do
+  many matchSpaceTillNewline'
+  entityName <- manyTill space' (try parseEntityName)
+  entityNameLineNum <- getState
+
+
+  pure $ CtagPieces [(entityName, entityNameLineNum)]
+
+  -- matchTillNewline'
+  -- undefined
   -- i <- getState
   -- pure i
 
@@ -85,47 +191,4 @@ main = hspec $ do
     parseLinesState input2 `shouldBe` Right (4,4)
 
   it "parses possibly" $ do
-    runParser (parseBeginning >> many anyChar >> getState) 1 "(source)" realExample `shouldBe` Right 19
-
-realExample :: [Char]
-realExample = intercalate "\n"
-
-
-
-
-
-
-
-
-
-
-      [ "{-# LANGUAGE TemplateHaskell #-}"
-      , "{-# OPTIONS_GHC -Wno-missing-deriving-strategies #-}"
-      , ""
-      , "module Freckle.Entities.Ela.Decodables.AssignmentSession"
-      , "  ( module Freckle.Entities.Ela.Decodables.AssignmentSession"
-      , "  ) where"
-      , ""
-      , "import Freckle.Entities.Import"
-      , ""
-      , "import Database.Persist.Sql (toSqlKey)"
-      , "import Test.QuickCheck.Arbitrary.Generic"
-      , ""
-      , "mkPersist"
-      , "  sqlSettings"
-      , "  [persistLowerCase|"
-      , ""
-      , "ElaDecodablesAssignmentSession sql=ela_decodables_assignment_sessions"
-      , "  studentId  StudentId"
-      , "  assignmentId  ElaDecodablesAssignmentId"
-      , "  updatedAt UTCTime"
-      , "  completedAt  UTCTime Maybe sql=completed_at"
-      , "  durationSeconds  DurationSeconds Maybe"
-      , "  accuracy  (Percentage Double) Maybe"
-      , "  numQuestionsAnswered  OverflowNatural Maybe"
-      , "  ElaDecodablesAssignmentSessionsStudentIdAssignmentIdKey studentId assignmentId"
-      , "  deriving Show Eq Ord Generic"
-      , "|]"
-      , ""
-      , ""
-      ]
+    runParser (parseBeginning >> many anyChar >> eof >> getState) 1 "(source)" realExample `shouldBe` Right 15
