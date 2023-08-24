@@ -8,7 +8,7 @@ import Control.Applicative (pure, some)
 import Control.Monad.Identity (Identity)
 import Control.Monad
 import Data.List
-import Data.Char (isAlpha)
+import Data.Char (isAlpha, isUpper)
 
 
 
@@ -44,8 +44,7 @@ realExample = intercalate "\n"
       , "  deriving Show Eq Ord Generic"
       , "|]"
       , ""
-      , ""
-      ]
+      , ""]
 
 realExample2 :: [Char]
 realExample2 = intercalate "\n"
@@ -83,6 +82,7 @@ realExample2 = intercalate "\n"
 
 
 data CtagPieces = CtagPieces [(String, Integer)]
+  deriving (Eq, Show)
 
 parse :: Parsec String () a -> String -> Either ParseError a
 parse rule text = Parsec.parse rule "(source)" text
@@ -105,6 +105,11 @@ parseBeginning = do
   let matchLineWithPersistLowerCase = try (manyTill (noneOf "\n") (try (string "[persistLowerCase|")))
   void $ manyTill matchAnyCharTillNewline' matchLineWithPersistLowerCase
 
+parseEntireFile :: Parsec String Integer CtagPieces
+parseEntireFile = do
+  parseBeginning
+  parseEntity
+
 space' :: Parsec String a Char
 space' = (try (char ' ') <|> try (char '\t'))
 
@@ -123,11 +128,15 @@ parseEntityName = do
 
 parseEntity :: Parsec String Integer CtagPieces
 parseEntity = do
-  many matchSpaceTillNewline'
-  entityName <- manyTill space' (try parseEntityName)
+  void $ many matchSpaceTillNewline'
+  void $ many (satisfy (not . isUpper))
+  entityName <- parseEntityName
   entityNameLineNum <- getState
 
-
+  -- void $ try (manyTill matchSpaceTillNewline' (try (manyTill space' (try parseEntityName))))
+  -- let parseColumns = undefined
+  -- cols <- parseColumns
+  -- updateColsWithEntityName
   pure $ CtagPieces [(entityName, entityNameLineNum)]
 
   -- matchTillNewline'
@@ -192,3 +201,11 @@ main = hspec $ do
 
   it "parses possibly" $ do
     runParser (parseBeginning >> many anyChar >> eof >> getState) 1 "(source)" realExample `shouldBe` Right 15
+
+  it "parses realExample" $ do
+    runParser (parseEntireFile <* many anyChar) 1 "(source)" realExample
+      `shouldBe` Right (CtagPieces [("ElaDecodablesAssignmentSession", 16)])
+
+  it "parses realExample2" $ do
+    runParser (parseEntireFile <* many anyChar) 1 "(source)" realExample2
+      `shouldBe` Right (CtagPieces [("ElaDecodablesAssignmentSession", 15)])
