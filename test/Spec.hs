@@ -113,6 +113,9 @@ parseEntireFile = do
 space' :: Parsec String a Char
 space' = (try (char ' ') <|> try (char '\t'))
 
+space'' :: Parsec String Integer Char
+space'' = try ((char '\n' ) <* modifyState (+1)) <|> space
+
 alpha :: Parsec String a Char
 alpha = satisfy isAlpha
 
@@ -128,8 +131,7 @@ parseEntityName = do
 
 parseEntity :: Parsec String Integer CtagPieces
 parseEntity = do
-  void $ many matchSpaceTillNewline'
-  void $ many (satisfy (not . isUpper))
+  void $ many space''
   entityName <- parseEntityName
   entityNameLineNum <- getState
 
